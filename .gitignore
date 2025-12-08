@@ -1,0 +1,13 @@
+# Local Terraform state
+*.tfstate
+*.tfstate.backup
+
+# Terraform working directories
+.terraform/
+crash.log
+crash.*.log
+
+# Lock file (optional to ignore, many teams commit it; your choice)
+#.terraform.lock.hcl
+.terraform.lock.hcl
+backend/.terraform.lock.hcl

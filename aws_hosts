@@ -1,0 +1,2 @@
+[grafana]
+13.217.128.15 ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa
