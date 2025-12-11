@@ -1,17 +1,17 @@
-pipeline{
+pipeline {
     agent any
-    environment{
+
+    environment {
         TF_IN_AUTOMATION = 'true'
         TF_CLI_CONFIG_FILE = credentials('Vyshh')
+        PATH = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
     }
-    environment {
-    PATH = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
-}
+
     stages {
         stage('Init') {
             steps {
-               sh 'ls'
-               sh 'terraform init -no-color'
+                sh 'ls'
+                sh 'terraform init -no-color'
             }
         }
         stage('Plan') {
@@ -19,6 +19,5 @@ pipeline{
                 sh 'terraform plan -no-color'
             }
         }
-        
     }
 }
