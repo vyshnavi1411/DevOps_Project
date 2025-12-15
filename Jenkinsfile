@@ -4,10 +4,11 @@ pipeline {
     environment {
         TF_IN_AUTOMATION = 'true'
         TF_CLI_ARGS = '-no-color'
-        TF_CLI_CONFIG_FILE = credentials('Vyshh')     // updated from your first pipeline
+        TF_CLI_CONFIG_FILE = credentials('Vyshh')
         SSH_CRED_ID = 'aws-deployer-ssh-key'
         PATH = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
     }
+
     stages {
 
         stage('Terraform Init') {
@@ -28,13 +29,11 @@ pipeline {
                 script {
                     sh 'terraform apply -auto-approve -no-color'
 
-                    // Extract EC2 Public IP
                     env.INSTANCE_IP = sh(
                         script: 'terraform output -raw instance_public_ip',
                         returnStdout: true
                     ).trim()
 
-                    // Extract EC2 Instance ID
                     env.INSTANCE_ID = sh(
                         script: 'terraform output -raw instance_id',
                         returnStdout: true
@@ -43,7 +42,6 @@ pipeline {
                     echo "Provisioned Instance IP: ${env.INSTANCE_IP}"
                     echo "Provisioned Instance ID: ${env.INSTANCE_ID}"
 
-                    // Create dynamic inventory for Ansible
                     sh "echo '${env.INSTANCE_IP}' > dynamic_inventory.ini"
                 }
             }
@@ -52,7 +50,7 @@ pipeline {
         stage('Wait for AWS Instance Health') {
             steps {
                 echo "Waiting for instance ${env.INSTANCE_ID} to pass AWS health checks..."
-                sh "aws ec2 wait instance-status-ok --instance-ids ${env.INSTANCE_ID} --region us-east-2"
+                sh "aws ec2 wait instance-status-ok --instance-ids ${env.INSTANCE_ID} --region us-east-1"
                 echo "Instance is healthy. Proceeding to Ansible."
             }
         }
