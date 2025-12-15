@@ -14,7 +14,6 @@ resource "aws_s3_bucket" "s3_remote_backend" {
     lifecycle {
       prevent_destroy = false
     }
-  
 }
 resource "aws_s3_bucket_versioning" "terraform_state" {
     bucket = aws_s3_bucket.s3_remote_backend.id
