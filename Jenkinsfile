@@ -80,10 +80,8 @@ pipeline {
                 which ansible-playbook
                 ansible-playbook --version
 
-                ansible-playbook \
-                playbooks/grafana.yml \
-                -i dynamic_inventory.ini
-                '''
+               ansible-playbook install-monitoring.yml -i dynamic_inventory.ini
+
             }
         }
     }
