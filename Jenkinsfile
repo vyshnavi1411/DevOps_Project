@@ -20,26 +20,31 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                sh '''
-                terraform init -no-color
-                '''
+                sh 'terraform init -no-color'
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                sh '''
-                terraform plan -no-color
-                '''
+                sh 'terraform plan -no-color'
+            }
+        }
+
+        /* ====== FROM 1st CODE (APPLY VALIDATION) ====== */
+        stage('Validate Apply') {
+            input {
+                message "Do you want to apply this Terraform plan?"
+                ok "Apply"
+            }
+            steps {
+                echo 'Terraform Apply Approved'
             }
         }
 
         stage('Terraform Apply') {
             steps {
                 script {
-                    sh '''
-                    terraform apply -auto-approve -no-color
-                    '''
+                    sh 'terraform apply -auto-approve -no-color'
 
                     env.INSTANCE_IP = sh(
                         script: 'terraform output -raw instance_public_ip',
@@ -74,16 +79,44 @@ pipeline {
             }
         }
 
-       stage('Ansible Configuration') {
-    steps {
-        sh '''
-        which ansible-playbook
-        ansible-playbook --version
+        /* ====== FROM 1st CODE (ANSIBLE VALIDATION) ====== */
+        stage('Validate Ansible') {
+            input {
+                message "Do you want to run Ansible?"
+                ok "Run Ansible"
+            }
+            steps {
+                echo 'Ansible Approved'
+            }
+        }
 
-        ansible-playbook install-monitoring.yml -i dynamic_inventory.ini
-        '''
-    }
-}
+        stage('Ansible Configuration') {
+            steps {
+                sh '''
+                which ansible-playbook
+                ansible-playbook --version
+
+                ansible-playbook install-monitoring.yml -i dynamic_inventory.ini
+                '''
+            }
+        }
+
+        /* ====== FROM 1st CODE (DESTROY VALIDATION) ====== */
+        stage('Validate Destroy') {
+            input {
+                message "Do you want to destroy the infrastructure?"
+                ok "Destroy"
+            }
+            steps {
+                echo 'Destroy Approved'
+            }
+        }
+
+        stage('Terraform Destroy') {
+            steps {
+                sh 'terraform destroy -auto-approve'
+            }
+        }
     }
 
     post {
