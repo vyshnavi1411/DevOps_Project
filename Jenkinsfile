@@ -74,16 +74,16 @@ pipeline {
             }
         }
 
-        stage('Ansible Configuration') {
-            steps {
-                sh '''
-                which ansible-playbook
-                ansible-playbook --version
+       stage('Ansible Configuration') {
+    steps {
+        sh '''
+        which ansible-playbook
+        ansible-playbook --version
 
-               ansible-playbook install-monitoring.yml -i dynamic_inventory.ini
-
-            }
-        }
+        ansible-playbook install-monitoring.yml -i dynamic_inventory.ini
+        '''
+    }
+}
     }
 
     post {
