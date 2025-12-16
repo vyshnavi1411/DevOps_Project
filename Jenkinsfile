@@ -4,36 +4,42 @@ pipeline {
     environment {
         TF_IN_AUTOMATION = 'true'
         TF_CLI_ARGS = '-no-color'
+        AWS_DEFAULT_REGION = 'us-east-1'
 
-        // Terraform credentials file (as you already configured)
-        TF_CLI_CONFIG_FILE = credentials('Vyshh')
-
-        // SSH key for Ansible
-        SSH_CRED_ID = 'aws-deployer-ssh-key'
-
-        // ✅ FIX: Add Python Ansible path so Jenkins can find ansible-playbook
-        PATH = "/Users/vyshu/Library/Python/3.12/bin:/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
+        // Ensure Jenkins can find terraform, aws & ansible
+        PATH = "/usr/local/bin:/opt/homebrew/bin:/Users/vyshu/Library/Python/3.12/bin:${env.PATH}"
     }
 
     stages {
 
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Terraform Init') {
             steps {
-                sh 'ls'
-                sh 'terraform init -no-color'
+                sh '''
+                terraform init -no-color
+                '''
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                sh 'terraform plan -no-color'
+                sh '''
+                terraform plan -no-color
+                '''
             }
         }
 
         stage('Terraform Apply') {
             steps {
                 script {
-                    sh 'terraform apply -auto-approve -no-color'
+                    sh '''
+                    terraform apply -auto-approve -no-color
+                    '''
 
                     env.INSTANCE_IP = sh(
                         script: 'terraform output -raw instance_public_ip',
@@ -48,11 +54,10 @@ pipeline {
                     echo "Provisioned Instance IP: ${env.INSTANCE_IP}"
                     echo "Provisioned Instance ID: ${env.INSTANCE_ID}"
 
-                    // ✅ Safe Ansible inventory
-                    sh """
+                    sh '''
                     echo "[web]" > dynamic_inventory.ini
-                    echo "${env.INSTANCE_IP}" >> dynamic_inventory.ini
-                    """
+                    echo "${INSTANCE_IP}" >> dynamic_inventory.ini
+                    '''
                 }
             }
         }
@@ -60,26 +65,38 @@ pipeline {
         stage('Wait for AWS Instance Health') {
             steps {
                 echo "Waiting for instance ${env.INSTANCE_ID} to pass AWS health checks..."
-                sh "aws ec2 wait instance-status-ok --instance-ids ${env.INSTANCE_ID} --region us-east-1"
+                sh '''
+                aws ec2 wait instance-status-ok \
+                --instance-ids ${INSTANCE_ID} \
+                --region us-east-1
+                '''
                 echo "Instance is healthy. Proceeding to Ansible."
             }
         }
 
-       stage('Ansible Configuration') {
-    steps {
-        sh '''
-        /Users/vyshu/Library/Python/3.12/bin/ansible-playbook \
-        playbooks/grafana.yml \
-        -i dynamic_inventory.ini
-        '''
-    }
-}
+        stage('Ansible Configuration') {
+            steps {
+                sh '''
+                which ansible-playbook
+                ansible-playbook --version
 
+                ansible-playbook \
+                playbooks/grafana.yml \
+                -i dynamic_inventory.ini
+                '''
+            }
+        }
     }
 
     post {
         always {
             sh 'rm -f dynamic_inventory.ini'
+        }
+        success {
+            echo "✅ Pipeline completed successfully!"
+        }
+        failure {
+            echo "❌ Pipeline failed. Check logs."
         }
     }
 }
