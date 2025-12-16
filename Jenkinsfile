@@ -65,20 +65,16 @@ pipeline {
             }
         }
 
-        stage('Ansible Configuration') {
-            steps {
-                // Optional debug (can remove later)
-                sh 'which ansible-playbook'
-                sh 'ansible-playbook --version'
+       stage('Ansible Configuration') {
+    steps {
+        sh '''
+        /Users/vyshu/Library/Python/3.12/bin/ansible-playbook \
+        playbooks/grafana.yml \
+        -i dynamic_inventory.ini
+        '''
+    }
+}
 
-                ansiblePlaybook(
-                    playbook: 'playbooks/grafana.yml',
-                    inventory: 'dynamic_inventory.ini',
-                    credentialsId: SSH_CRED_ID,
-                    colorized: true
-                )
-            }
-        }
     }
 
     post {
