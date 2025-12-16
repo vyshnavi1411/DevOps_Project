@@ -4,9 +4,15 @@ pipeline {
     environment {
         TF_IN_AUTOMATION = 'true'
         TF_CLI_ARGS = '-no-color'
+
+        // Terraform credentials file (as you already configured)
         TF_CLI_CONFIG_FILE = credentials('Vyshh')
+
+        // SSH key for Ansible
         SSH_CRED_ID = 'aws-deployer-ssh-key'
-        PATH = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
+
+        // ✅ FIX: Add Python Ansible path so Jenkins can find ansible-playbook
+        PATH = "/Users/vyshu/Library/Python/3.12/bin:/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
     }
 
     stages {
@@ -42,7 +48,11 @@ pipeline {
                     echo "Provisioned Instance IP: ${env.INSTANCE_IP}"
                     echo "Provisioned Instance ID: ${env.INSTANCE_ID}"
 
-                    sh "echo '${env.INSTANCE_IP}' > dynamic_inventory.ini"
+                    // ✅ Safe Ansible inventory
+                    sh """
+                    echo "[web]" > dynamic_inventory.ini
+                    echo "${env.INSTANCE_IP}" >> dynamic_inventory.ini
+                    """
                 }
             }
         }
@@ -57,10 +67,15 @@ pipeline {
 
         stage('Ansible Configuration') {
             steps {
+                // Optional debug (can remove later)
+                sh 'which ansible-playbook'
+                sh 'ansible-playbook --version'
+
                 ansiblePlaybook(
                     playbook: 'playbooks/grafana.yml',
                     inventory: 'dynamic_inventory.ini',
-                    credentialsId: SSH_CRED_ID
+                    credentialsId: SSH_CRED_ID,
+                    colorized: true
                 )
             }
         }

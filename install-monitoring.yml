@@ -2,9 +2,7 @@
 - name: Install Prometheus and Grafana
   hosts: grafana
   become: yes
-
   tasks:
-
     # ---------------------- DEPENDENCIES ----------------------
     - name: Install dependencies
       apt:
@@ -16,15 +14,12 @@
         state: present
         update_cache: yes
       when: ansible_os_family == "Debian"
-
     # ---------------------- PROMETHEUS ----------------------
-       # ---------------------- PROMETHEUS ----------------------
     - name: Add Prometheus user
       user:
         name: prometheus
         shell: /sbin/nologin
         system: yes
-
     - name: Create Prometheus directories
       file:
         path: "{{ item }}"
@@ -34,7 +29,6 @@
       loop:
         - /etc/prometheus
         - /var/lib/prometheus
-
     - name: Download Prometheus
       get_url:
         url: https://github.com/prometheus/prometheus/releases/download/v2.45.0/prometheus-2.45.0.linux-amd64.tar.gz
