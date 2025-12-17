@@ -1,15 +1,11 @@
 pipeline {
     agent any
-
     environment {
         TF_IN_AUTOMATION = 'true'
         TF_CLI_ARGS = '-no-color'
         AWS_DEFAULT_REGION = 'us-east-1'
-
-        // Ensure Jenkins can find terraform, aws & ansible
         PATH = "/usr/local/bin:/opt/homebrew/bin:/Users/vyshu/Library/Python/3.12/bin:${env.PATH}"
     }
-
     stages {
 
         stage('Checkout') {
@@ -17,16 +13,15 @@ pipeline {
                 checkout scm
             }
         }
-
         stage('Terraform Init') {
             steps {
                 sh 'terraform init -no-color'
+                sh 'cat $BRANCH_NAME.tfvars'
             }
         }
-
         stage('Terraform Plan') {
             steps {
-                sh 'terraform plan -no-color'
+                sh 'terraform plan -var-file=$BRANCH_NAME.tfvars'
             }
         }
 
@@ -44,7 +39,7 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 script {
-                    sh 'terraform apply -auto-approve -no-color'
+                    sh 'terraform apply -auto-approve -var-file=$BRANCH_NAME.tfvars'
 
                     env.INSTANCE_IP = sh(
                         script: 'terraform output -raw instance_public_ip',
@@ -114,7 +109,7 @@ pipeline {
 
         stage('Terraform Destroy') {
             steps {
-                sh 'terraform destroy -auto-approve'
+                sh 'terraform destroy -auto-approve -var-file=$BRANCH_NAME.tfvars'
             }
         }
     }
@@ -127,7 +122,7 @@ pipeline {
             echo "✅ Pipeline completed successfully!"
         }
         failure {
-            echo "❌ Pipeline failed. Check logs."
+            sh 'terraform destroy -auto-approve -var-file=$BRANCH_NAME.tfvars || echo "Cleanup failed or was not necessary."'
         }
     }
 }
