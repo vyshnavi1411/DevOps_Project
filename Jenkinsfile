@@ -6,7 +6,7 @@ pipeline {
     AWS_DEFAULT_REGION = 'us-east-1'
     PATH = "/usr/local/bin:/opt/homebrew/bin:/Users/vyshu/Library/Python/3.12/bin:${env.PATH}"
     // CHANGE THIS: Replace 'main' with your actual .tfvars filename (e.g., 'dev' or 'prod')
-    BRANCH_NAME = "dev" 
+    BRANCH_NAME = "main" 
 }
     stages {
         stage('Checkout') {
