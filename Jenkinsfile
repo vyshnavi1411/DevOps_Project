@@ -1,14 +1,14 @@
 pipeline {
     agent any
-    environment {
-        TF_IN_AUTOMATION = 'true'
-        TF_CLI_ARGS = '-no-color'
-        AWS_DEFAULT_REGION = 'us-east-1'
-        PATH = "/usr/local/bin:/opt/homebrew/bin:/Users/vyshu/Library/Python/3.12/bin:${env.PATH}"
-        
-        // FIX: This detects the branch name even in simple Pipeline jobs
-        BRANCH_NAME = "${env.BRANCH_NAME ?: sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()}"
-    }
+   environment {
+    TF_IN_AUTOMATION = 'true'
+    TF_CLI_ARGS = '-no-color'
+    AWS_DEFAULT_REGION = 'us-east-1'
+    PATH = "/usr/local/bin:/opt/homebrew/bin:/Users/vyshu/Library/Python/3.12/bin:${env.PATH}"
+    
+    // CHANGE THIS: Replace 'main' with your actual .tfvars filename (e.g., 'dev' or 'prod')
+    BRANCH_NAME = "dev" 
+}
     stages {
         stage('Checkout') {
             steps {
