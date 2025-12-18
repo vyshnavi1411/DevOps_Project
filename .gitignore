@@ -11,3 +11,4 @@ crash.*.log
 #.terraform.lock.hcl
 .terraform.lock.hcl
 backend/.terraform.lock.hcl
+*.pem
