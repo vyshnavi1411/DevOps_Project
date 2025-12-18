@@ -9,7 +9,6 @@ pipeline {
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
@@ -19,79 +18,94 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 sh 'terraform init -no-color'
+                sh "cat ${BRANCH_NAME}.tfvars"
             }
         }
 
-        /* ================= DEV BRANCH (Continuous Delivery) ================= */
-
-        stage('Approve Terraform Plan (DEV)') {
-            when { branch 'dev' }
-            input {
-                message "DEV: Approve Terraform Plan?"
-                ok "Approve Plan"
-            }
+        stage('Terraform Plan') {
             steps {
-                echo "Plan approved for DEV"
+                sh "terraform plan -var-file=${BRANCH_NAME}.tfvars"
             }
         }
 
-        stage('Terraform Plan (DEV)') {
-            when { branch 'dev' }
-            steps {
-                sh "terraform plan -var-file=dev.tfvars"
-            }
-        }
-
-        stage('Approve Terraform Apply (DEV)') {
-            when { branch 'dev' }
+        stage('Validate Apply') {
             input {
-                message "DEV: Approve Terraform Apply?"
+                message "Do you want to apply this Terraform plan?"
                 ok "Apply"
             }
             steps {
-                echo "Apply approved for DEV"
+                echo 'Terraform Apply Approved'
             }
         }
 
-        stage('Terraform Apply (DEV)') {
-            when { branch 'dev' }
+        stage('Terraform Apply') {
             steps {
-                sh "terraform apply -auto-approve -var-file=dev.tfvars"
+                script {
+                    sh "terraform apply -auto-approve -var-file=${BRANCH_NAME}.tfvars"
+
+                    env.INSTANCE_IP = sh(
+                        script: 'terraform output -raw instance_public_ip',
+                        returnStdout: true
+                    ).trim()
+
+                    env.INSTANCE_ID = sh(
+                        script: 'terraform output -raw instance_id',
+                        returnStdout: true
+                    ).trim()
+
+                    sh """
+                    echo "[web]" > dynamic_inventory.ini
+                    echo "${INSTANCE_IP}" >> dynamic_inventory.ini
+                    """
+                }
             }
         }
 
-        /* ================= MAIN BRANCH (Continuous Deployment) ================= */
-
-        stage('Terraform Plan (MAIN)') {
-            when { branch 'main' }
+        stage('Wait for AWS Instance Health') {
             steps {
-                sh "terraform plan -var-file=main.tfvars"
+                sh "aws ec2 wait instance-status-ok --instance-ids ${INSTANCE_ID} --region us-east-1"
             }
         }
 
-        stage('Terraform Apply (MAIN)') {
-            when { branch 'main' }
-            steps {
-                sh "terraform apply -auto-approve -var-file=main.tfvars"
-            }
-        }
-
-        stage('Approve Destroy (MAIN)') {
-            when { branch 'main' }
+        stage('Validate Ansible') {
             input {
-                message "MAIN: Approve Terraform Destroy?"
+                message "Do you want to run Ansible?"
+                ok "Run Ansible"
+            }
+            steps {
+                echo 'Ansible Approved'
+            }
+        }
+
+        stage('Ansible Configuration') {
+            steps {
+                sh 'ansible-playbook install-monitoring.yml -i dynamic_inventory.ini'
+            }
+        }
+
+        stage('Validate Destroy') {
+            input {
+                message "Do you want to destroy the infrastructure?"
                 ok "Destroy"
             }
             steps {
-                echo "Destroy approved for MAIN"
+                echo 'Destroy Approved'
             }
         }
 
-        stage('Terraform Destroy (MAIN)') {
-            when { branch 'main' }
+        stage('Terraform Destroy') {
             steps {
-                sh "terraform destroy -auto-approve -var-file=main.tfvars"
+                sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars"
             }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f dynamic_inventory.ini'
+        }
+        failure {
+            sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars || echo 'Cleanup failed or not required.'"
         }
     }
 }
