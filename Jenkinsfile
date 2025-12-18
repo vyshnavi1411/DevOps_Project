@@ -28,13 +28,11 @@ pipeline {
             }
         }
 
+        // --- CD Logic for Dev: Ask for permission before Apply ---
         stage('Validate Apply') {
-            input {
-                message "Do you want to apply this Terraform plan?"
-                ok "Apply"
-            }
+            when { branch 'dev' } 
             steps {
-                echo 'Terraform Apply Approved'
+                input message: "Do you want to apply this Terraform plan to DEV?", ok: "Apply"
             }
         }
 
@@ -43,15 +41,8 @@ pipeline {
                 script {
                     sh "terraform apply -auto-approve -var-file=${BRANCH_NAME}.tfvars"
 
-                    env.INSTANCE_IP = sh(
-                        script: 'terraform output -raw instance_public_ip',
-                        returnStdout: true
-                    ).trim()
-
-                    env.INSTANCE_ID = sh(
-                        script: 'terraform output -raw instance_id',
-                        returnStdout: true
-                    ).trim()
+                    env.INSTANCE_IP = sh(script: 'terraform output -raw instance_public_ip', returnStdout: true).trim()
+                    env.INSTANCE_ID = sh(script: 'terraform output -raw instance_id', returnStdout: true).trim()
 
                     sh """
                     echo "[web]" > dynamic_inventory.ini
@@ -67,13 +58,11 @@ pipeline {
             }
         }
 
+        // --- CD Logic for Dev: Ask for permission before Ansible ---
         stage('Validate Ansible') {
-            input {
-                message "Do you want to run Ansible?"
-                ok "Run Ansible"
-            }
+            when { branch 'dev' }
             steps {
-                echo 'Ansible Approved'
+                input message: "Do you want to run Ansible on DEV?", ok: "Run Ansible"
             }
         }
 
@@ -83,13 +72,10 @@ pipeline {
             }
         }
 
+        // --- Permission for Destroy (Required for BOTH branches as per your request) ---
         stage('Validate Destroy') {
-            input {
-                message "Do you want to destroy the infrastructure?"
-                ok "Destroy"
-            }
             steps {
-                echo 'Destroy Approved'
+                input message: "CRITICAL: Do you want to destroy the infrastructure?", ok: "Destroy"
             }
         }
 
@@ -105,6 +91,7 @@ pipeline {
             sh 'rm -f dynamic_inventory.ini'
         }
         failure {
+            // Note: Auto-destroy on failure might be risky for production (main)
             sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars || echo 'Cleanup failed or not required.'"
         }
     }
