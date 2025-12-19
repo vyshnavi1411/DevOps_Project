@@ -94,5 +94,7 @@ pipeline {
             // Note: Auto-destroy on failure might be risky for production (main)
             sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars || echo 'Cleanup failed or not required.'"
         }
+    aborted {
+        sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars || echo 'Cleanup failed or not required.'"
     }
 }
