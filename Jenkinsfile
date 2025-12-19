@@ -65,21 +65,24 @@ pipeline {
             }
         }
 
+      
         stage('Ansible Configuration') {
-            steps {
-                ansiblePlaybook(
-                    playbook: 'install-monitoring.yml',
-                    inventory: 'dynamic_inventory.ini',
-                    credentialsId: SSH_CREDENTIALS_ID,
-                    ansibleInstallation: 'ansible-python'
-                )
-                ansiblePlaybook(
-                    playbook: 'test-grafana.yml',
-                    inventory: 'dynamic_inventory.ini',
-                    credentialsId: SSH_CREDENTIALS_ID,
-                    ansibleInstallation: 'ansible-python'
-                )
-            }
+          steps {
+        ansiblePlaybook(
+            playbook: 'install-monitoring.yml',
+            inventory: 'dynamic_inventory.ini',
+            credentialsId: SSH_CREDENTIALS_ID,
+            installation: 'ansible-python'
+        )
+        ansiblePlaybook(
+            playbook: 'test-grafana.yml',
+            inventory: 'dynamic_inventory.ini',
+            credentialsId: SSH_CREDENTIALS_ID,
+            installation: 'ansible-python'
+        )
+    }
+
+
         }
 
         stage('Validate Destroy') {
