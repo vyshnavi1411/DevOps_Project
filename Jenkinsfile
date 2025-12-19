@@ -98,3 +98,4 @@ pipeline {
         sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars || echo 'Cleanup failed or not required.'"
     }
 }
+}
