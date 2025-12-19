@@ -1,25 +1,15 @@
 ---
 - name: Install Prometheus and Grafana
-  hosts: grafana
+  hosts: all            # FIX: Must match the [web] group or use 'all'
   become: yes
   tasks:
-    # ---------------------- DEPENDENCIES ----------------------
-    - name: Install dependencies
-      apt:
-        name:
-          - wget
-          - curl
-          - gnupg
-          - software-properties-common
-        state: present
-        update_cache: yes
-      when: ansible_os_family == "Debian"
     # ---------------------- PROMETHEUS ----------------------
     - name: Add Prometheus user
       user:
         name: prometheus
         shell: /sbin/nologin
         system: yes
+
     - name: Create Prometheus directories
       file:
         path: "{{ item }}"
@@ -29,14 +19,10 @@
       loop:
         - /etc/prometheus
         - /var/lib/prometheus
-    - name: Download Prometheus
-      get_url:
-        url: https://github.com/prometheus/prometheus/releases/download/v2.45.0/prometheus-2.45.0.linux-amd64.tar.gz
-        dest: /tmp/prometheus.tar.gz
 
-    - name: Extract Prometheus
+    - name: Download and Extract Prometheus
       unarchive:
-        src: /tmp/prometheus.tar.gz
+        src: https://github.com/prometheus/prometheus/releases/download/v2.45.0/prometheus-2.45.0.linux-amd64.tar.gz
         dest: /tmp/
         remote_src: yes
 
@@ -50,87 +36,58 @@
         - prometheus
         - promtool
 
-    - name: Copy Prometheus console templates
-      copy:
-        src: "/tmp/prometheus-2.45.0.linux-amd64/{{ item }}"
-        dest: "/usr/local/{{ item }}"
-        remote_src: yes
-      loop:
-        - consoles
-        - console_libraries
-
-    - name: Create Prometheus configuration file
+    - name: Create Prometheus configuration
       copy:
         dest: /etc/prometheus/prometheus.yml
         content: |
           global:
             scrape_interval: 15s
-
           scrape_configs:
             - job_name: 'prometheus'
               static_configs:
                 - targets: ['localhost:9090']
         owner: prometheus
         group: prometheus
-        mode: "0644"
 
     - name: Create Prometheus systemd service
       copy:
         dest: /etc/systemd/system/prometheus.service
         content: |
           [Unit]
-          Description=Prometheus Monitoring System
+          Description=Prometheus
           After=network.target
 
           [Service]
           User=prometheus
-          ExecStart=/usr/local/bin/prometheus \
-            --config.file=/etc/prometheus/prometheus.yml \
-            --storage.tsdb.path=/var/lib/prometheus \
-            --web.console.templates=/usr/local/consoles \
-            --web.console.libraries=/usr/local/console_libraries \
-            --web.listen-address=0.0.0.0:9090
+          ExecStart=/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus
           Restart=always
 
           [Install]
           WantedBy=multi-user.target
-        mode: "0644"
 
-    - name: Reload systemd
-      command: systemctl daemon-reload
-
-    - name: Enable and start Prometheus
+    - name: Start Prometheus
       systemd:
         name: prometheus
-        enabled: yes
         state: started
+        enabled: yes
+        daemon_reload: yes
 
-
-    # ---------------------- GRAFANA -------------------------
-    - name: Install Grafana APT key
-      apt_key:
-        url: https://packages.grafana.com/gpg.key
-        state: present
-
+    # ---------------------- GRAFANA (Amazon Linux Version) -------------------------
     - name: Add Grafana repo
-      apt_repository:
-        repo: "deb https://packages.grafana.com/oss/deb stable main"
-        state: present
+      yum_repository:
+        name: grafana
+        description: Grafana
+        baseurl: https://rpm.grafana.com
+        gpgcheck: yes
+        gpgkey: https://rpm.grafana.com/gpg.key
 
     - name: Install Grafana
-      apt:
+      yum:
         name: grafana
-        state: latest
-        update_cache: yes
+        state: present
 
-    - name: Enable and start Grafana
+    - name: Start Grafana
       systemd:
         name: grafana-server
-        enabled: yes
         state: started
-
-    - name: wait for Grafana to start
-      wait_for:
-        port: 3000
-        delay: 10
-        timeout: 60
+        enabled: yes

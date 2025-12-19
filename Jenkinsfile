@@ -40,19 +40,22 @@ pipeline {
                 sh "aws ec2 wait instance-status-ok --instance-ids ${env.INSTANCE_ID}"
             }
         }
-
-      stage('Ansible Configuration') {
+stage('Ansible Configuration') {
     steps {
         withCredentials([sshUserPrivateKey(credentialsId: SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY')]) {
             sh """
+            export ANSIBLE_HOST_KEY_CHECKING=False
+            
+            # Run the corrected install playbook
             ansible-playbook install-monitoring.yml \
                 -i dynamic_inventory.ini \
-                --private-key ${SSH_KEY} \
+                --private-key "${SSH_KEY}" \
                 -u ec2-user
-            
+
+            # Run the health check playbook
             ansible-playbook test-grafana.yml \
                 -i dynamic_inventory.ini \
-                --private-key ${SSH_KEY} \
+                --private-key "${SSH_KEY}" \
                 -u ec2-user
             """
         }
