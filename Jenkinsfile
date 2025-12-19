@@ -5,6 +5,7 @@ pipeline {
         TF_IN_AUTOMATION = 'true'
         TF_CLI_ARGS = '-no-color'
         AWS_DEFAULT_REGION = 'us-east-1'
+        SSH_CREDENTIALS_ID = 'was-deployer-ssh-key'
         PATH = "/usr/local/bin:/opt/homebrew/bin:/Users/vyshu/Library/Python/3.12/bin:${PATH}"
     }
 
@@ -68,7 +69,16 @@ pipeline {
 
         stage('Ansible Configuration') {
             steps {
-                sh 'ansible-playbook install-monitoring.yml -i dynamic_inventory.ini'
+                ansiblePlaybook(
+                    playbook: 'install-monitoring.yml',
+                    inventory: 'dynamic_inventory.ini',
+                    credentialsId: SSH_CREDENTIALS_ID,
+                )
+                ansiblePlaybook(
+                    playbook: 'test-grafana.yml',
+                    inventory: 'dynamic_inventory.ini',
+                    credentialsId: SSH_CREDENTIALS_ID,
+                )
             }
         }
 
