@@ -41,20 +41,23 @@ pipeline {
             }
         }
 
-        stage('Run Ansible') {
-            steps {
-                ansiblePlaybook(
-                    playbook: 'install-monitoring.yml',
-                    inventory: 'dynamic_inventory.ini',
-                    credentialsId: SSH_CREDENTIALS_ID
-                )
-                ansiblePlaybook(
-                    playbook: 'test-grafana.yml',
-                    inventory: 'dynamic_inventory.ini',
-                    credentialsId: SSH_CREDENTIALS_ID
-                )
-            }
+      stage('Ansible Configuration') {
+    steps {
+        withCredentials([sshUserPrivateKey(credentialsId: SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY')]) {
+            sh """
+            ansible-playbook install-monitoring.yml \
+                -i dynamic_inventory.ini \
+                --private-key ${SSH_KEY} \
+                -u ec2-user
+            
+            ansible-playbook test-grafana.yml \
+                -i dynamic_inventory.ini \
+                --private-key ${SSH_KEY} \
+                -u ec2-user
+            """
         }
+    }
+}
 
         stage('Terraform Destroy') {
             steps {
