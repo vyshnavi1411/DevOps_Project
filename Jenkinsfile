@@ -2,37 +2,21 @@ pipeline {
     agent any
 
     environment {
-        TF_IN_AUTOMATION = 'true'
-        TF_CLI_ARGS = '-no-color'
         AWS_DEFAULT_REGION = 'us-east-1'
         SSH_CREDENTIALS_ID = 'was-deployer-ssh-key'
+        ANSIBLE_HOST_KEY_CHECKING = 'False' 
         PATH = "/usr/local/bin:/opt/homebrew/bin:/Users/vyshu/Library/Python/3.12/bin:${PATH}"
     }
 
     stages {
         stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Terraform Init') {
-            steps {
-                sh 'terraform init -no-color'
-                sh "cat ${BRANCH_NAME}.tfvars"
-            }
+            steps { checkout scm }
         }
 
         stage('Terraform Plan') {
             steps {
+                sh 'terraform init -no-color'
                 sh "terraform plan -var-file=${BRANCH_NAME}.tfvars"
-            }
-        }
-
-        stage('Validate Apply') {
-            when { branch 'dev' } 
-            steps {
-                input message: "Do you want to apply this Terraform plan to DEV?", ok: "Apply"
             }
         }
 
@@ -40,59 +24,41 @@ pipeline {
             steps {
                 script {
                     sh "terraform apply -auto-approve -var-file=${BRANCH_NAME}.tfvars"
-
-                    env.INSTANCE_IP = sh(script: 'terraform output -raw instance_public_ip', returnStdout: true).trim()
+                    
+                    // Capture IP and ID
+                    def ip = sh(script: 'terraform output -raw instance_public_ip', returnStdout: true).trim()
                     env.INSTANCE_ID = sh(script: 'terraform output -raw instance_id', returnStdout: true).trim()
 
-                    sh """
-                    echo "[web]" > dynamic_inventory.ini
-                    echo "${INSTANCE_IP}" >> dynamic_inventory.ini
-                    """
+                    // Build inventory: adds ec2-user automatically
+                    sh "echo '[web]\n${ip} ansible_user=ec2-user' > dynamic_inventory.ini"
                 }
             }
         }
 
-        stage('Wait for AWS Instance Health') {
+        stage('Wait for AWS') {
             steps {
-                sh "aws ec2 wait instance-status-ok --instance-ids ${INSTANCE_ID} --region us-east-1"
+                sh "aws ec2 wait instance-status-ok --instance-ids ${env.INSTANCE_ID}"
             }
         }
 
-        stage('Validate Ansible') {
-            when { branch 'dev' }
+        stage('Run Ansible') {
             steps {
-                input message: "Do you want to run Ansible on DEV?", ok: "Run Ansible"
-            }
-        }
-
-      
-        stage('Ansible Configuration') {
-          steps {
-        ansiblePlaybook(
-            playbook: 'install-monitoring.yml',
-            inventory: 'dynamic_inventory.ini',
-            credentialsId: SSH_CREDENTIALS_ID,
-            installation: 'ansible-python'
-        )
-        ansiblePlaybook(
-            playbook: 'test-grafana.yml',
-            inventory: 'dynamic_inventory.ini',
-            credentialsId: SSH_CREDENTIALS_ID,
-            installation: 'ansible-python'
-        )
-    }
-
-
-        }
-
-        stage('Validate Destroy') {
-            steps {
-                input message: "CRITICAL: Do you want to destroy the infrastructure?", ok: "Destroy"
+                ansiblePlaybook(
+                    playbook: 'install-monitoring.yml',
+                    inventory: 'dynamic_inventory.ini',
+                    credentialsId: SSH_CREDENTIALS_ID
+                )
+                ansiblePlaybook(
+                    playbook: 'test-grafana.yml',
+                    inventory: 'dynamic_inventory.ini',
+                    credentialsId: SSH_CREDENTIALS_ID
+                )
             }
         }
 
         stage('Terraform Destroy') {
             steps {
+                input message: "Destroy infrastructure?"
                 sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars"
             }
         }
@@ -102,11 +68,5 @@ pipeline {
         always {
             sh 'rm -f dynamic_inventory.ini'
         }
-        failure {
-            sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars || echo 'Cleanup failed or not required.'"
-        }
-    aborted {
-        sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars || echo 'Cleanup failed or not required.'"
     }
-}
 }

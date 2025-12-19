@@ -1,9 +1,9 @@
+---
 - name: Test for Grafana service
   hosts: all
   gather_facts: no
   tasks:
-    - name: grafana
-      ansible_builtin_url:
-      url: http://{{ inventory_hostname }}:3000
-      follow_redirects: all
-      status_code: [302]
+    - name: check grafana
+      ansible.builtin.uri:
+        url: "http://{{ inventory_hostname }}:3000"
+        status_code: [200, 302]
