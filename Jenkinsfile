@@ -29,7 +29,6 @@ pipeline {
             }
         }
 
-        // --- CD Logic for Dev: Ask for permission before Apply ---
         stage('Validate Apply') {
             when { branch 'dev' } 
             steps {
@@ -59,7 +58,6 @@ pipeline {
             }
         }
 
-        // --- CD Logic for Dev: Ask for permission before Ansible ---
         stage('Validate Ansible') {
             when { branch 'dev' }
             steps {
@@ -73,16 +71,17 @@ pipeline {
                     playbook: 'install-monitoring.yml',
                     inventory: 'dynamic_inventory.ini',
                     credentialsId: SSH_CREDENTIALS_ID,
+                    ansibleInstallation: 'ansible-python'
                 )
                 ansiblePlaybook(
                     playbook: 'test-grafana.yml',
                     inventory: 'dynamic_inventory.ini',
                     credentialsId: SSH_CREDENTIALS_ID,
+                    ansibleInstallation: 'ansible-python'
                 )
             }
         }
 
-        // --- Permission for Destroy (Required for BOTH branches as per your request) ---
         stage('Validate Destroy') {
             steps {
                 input message: "CRITICAL: Do you want to destroy the infrastructure?", ok: "Destroy"
@@ -101,7 +100,6 @@ pipeline {
             sh 'rm -f dynamic_inventory.ini'
         }
         failure {
-            // Note: Auto-destroy on failure might be risky for production (main)
             sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars || echo 'Cleanup failed or not required.'"
         }
     aborted {
