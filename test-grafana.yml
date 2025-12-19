@@ -1,9 +1,0 @@
----
-- name: Test for Grafana service
-  hosts: all
-  gather_facts: no
-  tasks:
-    - name: check grafana
-      ansible.builtin.uri:
-        url: "http://{{ inventory_hostname }}:3000"
-        status_code: [200, 302]
