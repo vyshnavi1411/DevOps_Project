@@ -2,10 +2,7 @@
 - name: Install Prometheus and Grafana
   hosts: grafana
   become: yes
-  gather_facts: yes
-
   tasks:
-
     # ---------------------- DEPENDENCIES ----------------------
     - name: Install dependencies
       apt:
@@ -17,25 +14,21 @@
         state: present
         update_cache: yes
       when: ansible_os_family == "Debian"
-
     # ---------------------- PROMETHEUS ----------------------
     - name: Add Prometheus user
       user:
         name: prometheus
         shell: /sbin/nologin
         system: yes
-
     - name: Create Prometheus directories
       file:
         path: "{{ item }}"
         state: directory
         owner: prometheus
         group: prometheus
-        mode: "0755"
       loop:
         - /etc/prometheus
         - /var/lib/prometheus
-
     - name: Download Prometheus
       get_url:
         url: https://github.com/prometheus/prometheus/releases/download/v2.45.0/prometheus-2.45.0.linux-amd64.tar.gz
@@ -51,13 +44,13 @@
       copy:
         src: "/tmp/prometheus-2.45.0.linux-amd64/{{ item }}"
         dest: "/usr/local/bin/{{ item }}"
-        mode: "0755"
+        mode: 0755
         remote_src: yes
       loop:
         - prometheus
         - promtool
 
-    - name: Copy Prometheus console files
+    - name: Copy Prometheus console templates
       copy:
         src: "/tmp/prometheus-2.45.0.linux-amd64/{{ item }}"
         dest: "/usr/local/{{ item }}"
@@ -66,12 +59,9 @@
         - consoles
         - console_libraries
 
-    - name: Create Prometheus config
+    - name: Create Prometheus configuration file
       copy:
         dest: /etc/prometheus/prometheus.yml
-        owner: prometheus
-        group: prometheus
-        mode: "0644"
         content: |
           global:
             scrape_interval: 15s
@@ -80,14 +70,16 @@
             - job_name: 'prometheus'
               static_configs:
                 - targets: ['localhost:9090']
+        owner: prometheus
+        group: prometheus
+        mode: "0644"
 
     - name: Create Prometheus systemd service
       copy:
         dest: /etc/systemd/system/prometheus.service
-        mode: "0644"
         content: |
           [Unit]
-          Description=Prometheus Monitoring
+          Description=Prometheus Monitoring System
           After=network.target
 
           [Service]
@@ -102,10 +94,10 @@
 
           [Install]
           WantedBy=multi-user.target
+        mode: "0644"
 
     - name: Reload systemd
-      systemd:
-        daemon_reload: yes
+      command: systemctl daemon-reload
 
     - name: Enable and start Prometheus
       systemd:
@@ -113,13 +105,14 @@
         enabled: yes
         state: started
 
+
     # ---------------------- GRAFANA -------------------------
-    - name: Add Grafana APT key
+    - name: Install Grafana APT key
       apt_key:
         url: https://packages.grafana.com/gpg.key
         state: present
 
-    - name: Add Grafana repository
+    - name: Add Grafana repo
       apt_repository:
         repo: "deb https://packages.grafana.com/oss/deb stable main"
         state: present
@@ -136,9 +129,8 @@
         enabled: yes
         state: started
 
-    - name: Wait for Grafana to start
+    - name: wait for Grafana to start
       wait_for:
         port: 3000
         delay: 10
         timeout: 60
- 
