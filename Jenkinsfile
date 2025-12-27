@@ -44,10 +44,10 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    // 🔥 IMPORTANT FIX: Force Python 3.10 for Ansible
+                    // ✅ CORRECT FIX: Use python3 (mapped to 3.10)
                     sh """
                     echo "[grafana]" > dynamic_inventory.ini
-                    echo "${INSTANCE_IP} ansible_user=ubuntu ansible_python_interpreter=/usr/bin/python3.10" >> dynamic_inventory.ini
+                    echo "${INSTANCE_IP} ansible_user=ubuntu ansible_python_interpreter=/usr/bin/python3" >> dynamic_inventory.ini
                     """
                 }
             }
