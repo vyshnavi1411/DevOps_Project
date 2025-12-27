@@ -9,6 +9,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -43,9 +44,10 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
+                    // 🔥 IMPORTANT FIX: Force Python 3.10 for Ansible
                     sh """
                     echo "[grafana]" > dynamic_inventory.ini
-                    echo "${INSTANCE_IP} ansible_user=ubuntu" >> dynamic_inventory.ini
+                    echo "${INSTANCE_IP} ansible_user=ubuntu ansible_python_interpreter=/usr/bin/python3.10" >> dynamic_inventory.ini
                     """
                 }
             }
@@ -63,7 +65,6 @@ pipeline {
             }
         }
 
-        /* -------- MANUAL DESTROY APPROVAL -------- */
         stage('Validate Destroy') {
             steps {
                 input message: "CRITICAL: Do you want to destroy the infrastructure?", ok: "Destroy"
