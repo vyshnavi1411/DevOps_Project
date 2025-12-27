@@ -33,20 +33,30 @@ pipeline {
         }
 
         stage('Terraform Apply') {
-            steps {
-                script {
-                    sh "terraform apply -auto-approve -var-file=${BRANCH_NAME}.tfvars"
+    steps {
+        script {
+            sh "terraform apply -auto-approve -var-file=${BRANCH_NAME}.tfvars"
 
-                    env.INSTANCE_IP = sh(script: 'terraform output -raw instance_public_ip', returnStdout: true).trim()
-                    env.INSTANCE_ID = sh(script: 'terraform output -raw instance_id', returnStdout: true).trim()
+            env.INSTANCE_IP = sh(
+                script: 'terraform output -raw instance_public_ip',
+                returnStdout: true
+            ).trim()
 
-                    sh """
-                    echo "[web]" > dynamic_inventory.ini
-                    echo "${INSTANCE_IP}" >> dynamic_inventory.ini
-                    """
-                }
-            }
+            env.INSTANCE_ID = sh(
+                script: 'terraform output -raw instance_id',
+                returnStdout: true
+            ).trim()
+
+            sh """
+            cat <<EOF > dynamic_inventory.ini
+[web]
+${INSTANCE_IP} ansible_user=ubuntu ansible_python_interpreter=/usr/bin/python3
+EOF
+            """
         }
+    }
+}
+
 
         stage('Wait for AWS Instance Health') {
             steps {

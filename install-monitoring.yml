@@ -1,6 +1,6 @@
 ---
 - name: Install Prometheus and Grafana
-  hosts: grafana
+  hosts: web
   become: yes
   tasks:
     # ---------------------- DEPENDENCIES ----------------------
