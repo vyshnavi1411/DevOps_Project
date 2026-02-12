@@ -54,12 +54,13 @@ pipeline {
                     ).trim()
 
                     // Create dynamic inventory with Python 3.10
-                    sh """
-                    cat <<EOF > dynamic_inventory.ini
+                    // Use auto_silent to let Ansible find the correct Python version automatically
+sh """
+cat <<EOF > dynamic_inventory.ini
 [web]
-${INSTANCE_IP} ansible_user=ubuntu ansible_python_interpreter=/usr/bin/python3.10
+${INSTANCE_IP} ansible_user=ubuntu ansible_python_interpreter=auto_silent
 EOF
-                    """
+"""
                 }
             }
         }
