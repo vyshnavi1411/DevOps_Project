@@ -1,12 +1,15 @@
 pipeline {
     agent any
+
     environment {
         TF_IN_AUTOMATION = 'true'
         TF_CLI_ARGS = '-no-color'
         AWS_DEFAULT_REGION = 'us-east-1'
         PATH = "/usr/local/bin:/opt/homebrew/bin:/Users/vyshu/Library/Python/3.12/bin:${PATH}"
     }
+
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -25,50 +28,59 @@ pipeline {
                 sh "terraform plan -var-file=${BRANCH_NAME}.tfvars"
             }
         }
+
+        // Approval only for DEV
         stage('Validate Apply') {
-            when { branch 'dev' } 
+            when { branch 'dev' }
             steps {
-                input message: "Do you want to apply this Terraform plan to DEV?", ok: "Apply"
+                input message: "Apply Terraform changes to DEV?", ok: "Apply"
             }
         }
 
         stage('Terraform Apply') {
-    steps {
-        script {
-            sh "terraform apply -auto-approve -var-file=${BRANCH_NAME}.tfvars"
+            steps {
+                script {
+                    sh "terraform apply -auto-approve -var-file=${BRANCH_NAME}.tfvars"
 
-            env.INSTANCE_IP = sh(
-                script: 'terraform output -raw instance_public_ip',
-                returnStdout: true
-            ).trim()
+                    env.INSTANCE_IP = sh(
+                        script: 'terraform output -raw instance_public_ip',
+                        returnStdout: true
+                    ).trim()
 
-            env.INSTANCE_ID = sh(
-                script: 'terraform output -raw instance_id',
-                returnStdout: true
-            ).trim()
+                    env.INSTANCE_ID = sh(
+                        script: 'terraform output -raw instance_id',
+                        returnStdout: true
+                    ).trim()
 
-            sh """
-            cat <<EOF > dynamic_inventory.ini
+                    // Dynamic inventory with Python 3.10
+                    sh """
+                    cat <<EOF > dynamic_inventory.ini
 [web]
-${INSTANCE_IP} ansible_user=ubuntu ansible_python_interpreter=/usr/bin/python3
+${INSTANCE_IP} ansible_user=ubuntu ansible_python_interpreter=/usr/bin/python3.10
 EOF
-            """
+                    """
+                }
+            }
         }
-    }
-}
 
-
-        stage('Wait for AWS Instance Health') {
+        stage('Wait for Instance Health') {
             steps {
                 sh "aws ec2 wait instance-status-ok --instance-ids ${INSTANCE_ID} --region us-east-1"
             }
         }
 
-        // --- CD Logic for Dev: Ask for permission before Ansible ---
+        // Extra wait for SSH + cloud-init
+        stage('Wait for SSH Ready') {
+            steps {
+                sh 'sleep 60'
+            }
+        }
+
+        // Approval before Ansible (DEV only)
         stage('Validate Ansible') {
             when { branch 'dev' }
             steps {
-                input message: "Do you want to run Ansible on DEV?", ok: "Run Ansible"
+                input message: "Run Ansible configuration?", ok: "Run"
             }
         }
 
@@ -78,10 +90,10 @@ EOF
             }
         }
 
-        // --- Permission for Destroy (Required for BOTH branches as per your request) ---
+        // Manual destroy confirmation for all branches
         stage('Validate Destroy') {
             steps {
-                input message: "CRITICAL: Do you want to destroy the infrastructure?", ok: "Destroy"
+                input message: "CRITICAL: Destroy infrastructure?", ok: "Destroy"
             }
         }
 
@@ -94,14 +106,17 @@ EOF
 
     post {
         always {
-            sh 'rm -f dynamic_inventory.ini'
+            sh 'rm -f dynamic_inventory.ini || true'
         }
+
         failure {
-            // Note: Auto-destroy on failure might be risky for production (main)
-            sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars || echo 'Cleanup failed or not required.'"
+            echo "Pipeline failed. Cleaning up resources..."
+            sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars || true"
         }
-    aborted {
-        sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars || echo 'Cleanup failed or not required.'"
+
+        aborted {
+            echo "Pipeline aborted. Cleaning up resources..."
+            sh "terraform destroy -auto-approve -var-file=${BRANCH_NAME}.tfvars || true"
+        }
     }
-}
 }
