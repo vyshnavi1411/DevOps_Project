@@ -2,6 +2,19 @@
 - name: Install Prometheus and Grafana
   hosts: web
   become: yes
+  # Step 1: Disable automatic fact gathering to prevent crash on Python 3.8
+  gather_facts: no
+
+  pre_tasks:
+    - name: Wait for cloud-init (Python 3.10 installation) to finish
+      raw: "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done"
+      changed_when: false
+
+    - name: Manually gather facts using Python 3.10
+      setup:
+      vars:
+        ansible_python_interpreter: /usr/bin/python3.10
+
   tasks:
     # ---------------------- DEPENDENCIES ----------------------
     - name: Install dependencies
@@ -14,12 +27,14 @@
         state: present
         update_cache: yes
       when: ansible_os_family == "Debian"
+
     # ---------------------- PROMETHEUS ----------------------
     - name: Add Prometheus user
       user:
         name: prometheus
         shell: /sbin/nologin
         system: yes
+
     - name: Create Prometheus directories
       file:
         path: "{{ item }}"
@@ -29,6 +44,7 @@
       loop:
         - /etc/prometheus
         - /var/lib/prometheus
+
     - name: Download Prometheus
       get_url:
         url: https://github.com/prometheus/prometheus/releases/download/v2.45.0/prometheus-2.45.0.linux-amd64.tar.gz
@@ -105,7 +121,6 @@
         enabled: yes
         state: started
 
-
     # ---------------------- GRAFANA -------------------------
     - name: Install Grafana APT key
       apt_key:
@@ -129,7 +144,7 @@
         enabled: yes
         state: started
 
-    - name: wait for Grafana to start
+    - name: Wait for Grafana to start
       wait_for:
         port: 3000
         delay: 10

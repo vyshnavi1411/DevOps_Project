@@ -58,7 +58,7 @@ pipeline {
 sh """
 cat <<EOF > dynamic_inventory.ini
 [web]
-${INSTANCE_IP} ansible_user=ubuntu ansible_python_interpreter=auto_silent
+${INSTANCE_IP} ansible_user=ubuntu ansible_python_interpreter=/usr/bin/python3.10
 EOF
 """
                 }
