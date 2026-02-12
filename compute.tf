@@ -29,11 +29,26 @@ resource "aws_instance" "web_server" {
 
   # Upgrade Python for Ansible compatibility
   user_data = <<-EOF
-    #!/bin/bash
-    apt update -y
-    apt install -y python3.10 python3.10-distutils
-    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
-  EOF
+#!/bin/bash
+set -e
+
+# Update packages
+apt-get update -y
+
+# Install Python 3.10
+apt-get install -y python3.10 python3.10-distutils python3-pip
+
+# Set Python 3.10 as default python3
+update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+update-alternatives --set python3 /usr/bin/python3.10
+
+# Verify installation
+python3 --version
+
+# Mark cloud-init completion
+echo "Python 3.10 setup complete"
+EOF
+
 
   tags = {
     Name = "web-server-${random_id.random_node_id[count.index].dec}"
